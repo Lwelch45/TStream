@@ -45,7 +45,7 @@ public class TStream {
 
     JavaSparkContext sc = new JavaSparkContext(configuration);
 
-    Util.configureTwitterCredentials(args[1]);
+    Util.configureTwitterCredentials("/twitter.config");
 
     JavaStreamingContext jsc = new JavaStreamingContext(configuration, Durations.seconds(2L));
 
