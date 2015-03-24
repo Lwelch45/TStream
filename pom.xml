@@ -8,7 +8,18 @@
     <artifactId>laurence.welch</artifactId>
     <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
-
+<build>
+    <plugins>
+        <plugin>
+            <artifactId>maven-compiler-plugin</artifactId>
+            <version>3.1</version>
+            <configuration>
+                <source>1.7</source>
+                <target>1.7</target>
+            </configuration>
+        </plugin>
+    </plugins>
+</build>
     <dependencies>
         <dependency> <!-- Spark dependency -->
             <groupId>org.apache.spark</groupId>

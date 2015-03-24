@@ -33,17 +33,17 @@ public class TStream {
 
   private final Logger Log = Logger.getLogger(TStream.class);
 
-  private static final List<String> stopWords = new Util().readLines("stop-words.txt");
-  private static final List<String> positiveWords = new Util().readLines("positive-words.txt");
-  private static final List<String> negativeWords = new Util().readLines("negative-words.txt");
+  private static final List<String> stopWords = new Util().readLines("/stop-words.txt");
+  private static final List<String> positiveWords = new Util().readLines("/positive-words.txt");
+  private static final List<String> negativeWords = new Util().readLines("/negative-words.txt");
 
   public static void main(String[] args) throws Exception {
     BasicConfigurator.configure();
     SparkConf configuration = new SparkConf().setAppName("Twitter Stream Sentiment Analysis");
 
-    JavaSparkContext sc = new JavaSparkContext(configuration);
-
     configuration.setMaster("local[2]");
+
+    JavaSparkContext sc = new JavaSparkContext(configuration);
 
     Util.configureTwitterCredentials(args[1]);
 
@@ -142,6 +142,7 @@ public class TStream {
         return null;
       }
     });
-
+    jsc.start();
+    jsc.awaitTermination();
   }
 }
