@@ -66,8 +66,6 @@ public class TStream {
   public static void main(String[] args) throws Exception {
     props.setProperty("annotators", "tokenize, ssplit, parse, sentiment");
 
-    final StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
-
     BasicConfigurator.configure();
     SparkConf configuration = new SparkConf().setAppName("Twitter Stream Sentiment Analysis");
 
@@ -107,9 +105,10 @@ public class TStream {
       @Override
       public Tuple3<Status, String, Integer> call(Tuple2<Status, String> statusStringTuple2) throws Exception {
 
-        int mainSentiment = 0;
+        Integer mainSentiment = 0;
         if (statusStringTuple2._2() != null && statusStringTuple2._2().length() > 0) {
           int longest = 0;
+          StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
           Annotation annotation = pipeline.process(statusStringTuple2._2());
           for (CoreMap sentence : annotation.get(CoreAnnotations.SentencesAnnotation.class)) {
             Tree tree = sentence.get(SentimentCoreAnnotations.AnnotatedTree.class);
