@@ -78,11 +78,30 @@ public class TStream {
       }
     });
 
-    //filter out all tweets from non english users
-    JavaDStream<Tuple2<Status, String>> englishMessages = textMessages.filter(
+    //filter out all of the stop words
+    JavaDStream<Tuple2<Status, String>> filteredMessages = textMessages.map(
+    new Function<Tuple2<Status, String>, Tuple2<Status, String>>() {
+      @Override
+      public Tuple2<Status, String> call(Tuple2<Status, String> statusStringTuple2) throws Exception {
+        String txt = statusStringTuple2._2();
+        for (String stopWord : stopWords) {
+          txt = txt.replaceAll("\\b" + stopWord + "\\b", "");
+        }
+        return new Tuple2<Status, String>(statusStringTuple2._1(), txt);
+      }
+    });
+
+    //filter out all tweets from non english users and empty tweets
+    JavaDStream<Tuple2<Status, String>> englishMessages = filteredMessages.filter(
     new Function<Tuple2<Status, String>, Boolean>() {
       @Override
       public Boolean call(Tuple2<Status, String> v1) throws Exception {
+        //check empty tweets
+        if (v1._2().isEmpty()){
+          return false;
+        }
+
+        //check user
         if (v1._1().getUser() != null) {
           if (v1._1().getUser().getLang().equals("en")) {
             return true;
@@ -95,21 +114,8 @@ public class TStream {
       }
     });
 
-    //filter out all of the stop words
-    JavaDStream<Tuple2<Status, String>> filteredMessages = englishMessages.map(
-    new Function<Tuple2<Status, String>, Tuple2<Status, String>>() {
-      @Override
-      public Tuple2<Status, String> call(Tuple2<Status, String> statusStringTuple2) throws Exception {
-        String txt = statusStringTuple2._2();
-        for (String stopWord : stopWords) {
-          txt = txt.replaceAll("\\b" + stopWord + "\\b", "");
-        }
-        return new Tuple2<Status, String>(statusStringTuple2._1(), txt);
-      }
-    });
-
     //score the tweets
-    JavaDStream<Tuple4<Status, String, Double, Double>> scoredMessages = filteredMessages.map(
+    JavaDStream<Tuple4<Status, String, Double, Double>> scoredMessages = englishMessages.map(
     new Function<Tuple2<Status, String>, Tuple4<Status, String, Double, Double>>() {
       @Override
       public Tuple4<Status, String, Double, Double> call(Tuple2<Status, String> statusStringTuple2) throws Exception {
@@ -120,7 +126,7 @@ public class TStream {
         for (int i = words.length - 1; i >= 0; i--) {
 
           if (positiveWords.contains(words[i])) {
-            positive++;
+            positive += 1.2;
             // naive assumption that the word that proceeds a positve word is also positive.
             if ((i < words.length - 1) && (positiveWords.size() < MAX_LIST_SIZE) && !(positiveWords.contains(words[i + 1]))) {
               positiveWords.add(words[i + 1]);
@@ -128,7 +134,7 @@ public class TStream {
           }
 
           if (negativeWords.contains(words[i])) {
-            negative++;
+            negative += 1.1;
             // naive assumption that the word that proceeds a negative word is also negative.
             if ((i < words.length - 1) && (negativeWords.size() < MAX_LIST_SIZE) && !(negativeWords.contains(words[i + 1]))) {
               negativeWords.add(words[i + 1]);
