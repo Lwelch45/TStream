@@ -146,7 +146,7 @@ public class TStream {
     new Function<Tuple4<Status, String, Double, Double>, Tuple5<Status, String, Double, Double, String>>() {
       @Override
       public Tuple5<Status, String, Double, Double, String> call(Tuple4<Status, String, Double, Double> tpl) throws Exception {
-        if ((tpl._3() == 0) && (tpl._4() == 0) || (tpl._3() == tpl._4())) {
+        if (((tpl._3() == 0) && (tpl._4() == 0)) || (tpl._3().equals(tpl._4()))) {
           return new Tuple5<Status, String, Double, Double, String>
           (tpl._1(), tpl._2(), tpl._3(), tpl._4(), "neutral");
         }
