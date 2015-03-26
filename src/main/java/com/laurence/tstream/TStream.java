@@ -76,7 +76,7 @@ public class TStream {
       new Function<Status, Tuple2<Status,String>>() {
       @Override
       public Tuple2<Status,String> call(Status status) throws Exception {
-        return new Tuple2<>(status, status.getText().replaceAll("[^a-zA-Z\\s]", "").trim().toLowerCase());
+        return new Tuple2<Status, String>(status, status.getText().replaceAll("[^a-zA-Z\\s]", "").trim().toLowerCase());
       }
     });
 
