@@ -1,13 +1,6 @@
 package com.laurence.tstream;
 
 import com.laurence.tstream.util.Util;
-import edu.stanford.nlp.ling.CoreAnnotations;
-import edu.stanford.nlp.neural.rnn.RNNCoreAnnotations;
-import edu.stanford.nlp.pipeline.Annotation;
-import edu.stanford.nlp.pipeline.StanfordCoreNLP;
-import edu.stanford.nlp.sentiment.SentimentCoreAnnotations;
-import edu.stanford.nlp.trees.Tree;
-import edu.stanford.nlp.util.CoreMap;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
@@ -25,8 +18,8 @@ import org.apache.spark.streaming.api.java.JavaReceiverInputDStream;
 import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.twitter.TwitterUtils;
 import scala.Tuple2;
-import scala.Tuple3;
 import scala.Tuple4;
+import scala.Tuple5;
 import twitter4j.Status;
 import twitter4j.json.DataObjectFactory;
 
@@ -44,6 +37,7 @@ public class TStream {
   private static final List<String> positiveWords = new Util().readLines("/positive-words.txt");
   private static final List<String> negativeWords = new Util().readLines("/negative-words.txt");
 
+  private static final int MAX_LIST_SIZE = 50000;
   private static Properties props = new Properties();
 
   private static String toStatus(int sentiment) {
@@ -82,7 +76,7 @@ public class TStream {
       new Function<Status, Tuple2<Status,String>>() {
       @Override
       public Tuple2<Status,String> call(Status status) throws Exception {
-        return new Tuple2<Status, String>(status, status.getText().replaceAll("[^a-zA-Z\\s]", "").trim().toLowerCase());
+        return new Tuple2<>(status, status.getText().replaceAll("[^a-zA-Z\\s]", "").trim().toLowerCase());
       }
     });
 
@@ -95,66 +89,75 @@ public class TStream {
         for (String stopWord : stopWords){
           txt = txt.replaceAll("\\b" + stopWord + "\\b", "");
         }
-        return new Tuple2<Status, String>(statusStringTuple2._1(), txt);
+        return new Tuple2<>(statusStringTuple2._1(), txt);
       }
     });
 
-    //score the tweets
-    JavaDStream<Tuple3<Status, String, Integer>> scoredMessages = filteredMessages.map(
-    new Function<Tuple2<Status, String>, Tuple3<Status, String, Integer>>() {
+//score the tweets
+    JavaDStream<Tuple4<Status, String, Double, Double>> scoredMessages = filteredMessages.map(
+    new Function<Tuple2<Status, String>, Tuple4<Status, String, Double, Double>>() {
       @Override
-      public Tuple3<Status, String, Integer> call(Tuple2<Status, String> statusStringTuple2) throws Exception {
+      public Tuple4<Status, String, Double, Double> call(Tuple2<Status, String> statusStringTuple2) throws Exception {
+        String[] words = statusStringTuple2._2().split(" ");
+        double length = words.length;
+        double positive = 0;
+        double negative = 0;
+        for (int i = words.length -1; i >= 0; i--)
+        {
+          if (positiveWords.contains(words[i])) {
+            positive++;
 
-        Integer mainSentiment = 0;
-        if (statusStringTuple2._2() != null && statusStringTuple2._2().length() > 0) {
-          int longest = 0;
-          StanfordCoreNLP pipeline = new StanfordCoreNLP(props);
-          Annotation annotation = pipeline.process(statusStringTuple2._2());
-          for (CoreMap sentence : annotation.get(CoreAnnotations.SentencesAnnotation.class)) {
-            Tree tree = sentence.get(SentimentCoreAnnotations.AnnotatedTree.class);
-            int sentiment = RNNCoreAnnotations.getPredictedClass(tree);
-            String partText = sentence.toString();
-            if (partText.length() > longest) {
-              mainSentiment = sentiment;
-              longest = partText.length();
+            // naive assumption that the word that proceeds a positve word is also positive.
+             if ((i < words.length -1) && (positiveWords.size() < MAX_LIST_SIZE) && !(positiveWords.contains(words[i+ 1]))){
+              positiveWords.add(words[i+1]);
             }
-
+          }
+          if (negativeWords.contains(words[i])){
+            negative++;
+            // naive assumption that the word that proceeds a positve word is also positive.
+            if ((i < words.length -1) && (negativeWords.size() < MAX_LIST_SIZE) && !(negativeWords.contains(words[i+ 1]))){
+              negativeWords.add(words[i+1]);
+            }
           }
         }
-        return new Tuple3<Status, String, Integer>
-        (statusStringTuple2._1(), statusStringTuple2._2(), mainSentiment);
+        return new Tuple4<>
+        (statusStringTuple2._1(), statusStringTuple2._2(), (positive/length), (negative/length));
       }
     });
 
     // output decision
-    JavaDStream<Tuple4<Status, String, Integer, String>> res = scoredMessages.map(
-      new Function<Tuple3<Status, String, Integer>, Tuple4<Status, String, Integer, String>>() {
+    JavaDStream<Tuple5<Status, String, Double, Double, String>> res = scoredMessages.map(
+    new Function<Tuple4<Status, String, Double, Double>, Tuple5<Status, String, Double, Double, String>>() {
       @Override
-      public Tuple4<Status, String, Integer, String> call(Tuple3<Status, String, Integer> tpl) throws Exception {
-        return new Tuple4<Status, String, Integer, String>
-          (tpl._1(),tpl._2(),tpl._3(), toStatus(tpl._3()));
+      public Tuple5<Status, String, Double, Double, String> call(Tuple4<Status, String, Double, Double> tpl) throws Exception {
+        if ((tpl._3() == 0) && (tpl._4() == 0)){
+          return new Tuple5<>
+          (tpl._1(),tpl._2(),tpl._3(),tpl._4(), "neutral" );
+        }
+        return new Tuple5<>
+        (tpl._1(),tpl._2(),tpl._3(),tpl._4(), (tpl._3() > tpl._4()) ? "positive" : "negative" );
       }
     });
 
-
-
-    res.foreachRDD(new Function<JavaRDD<Tuple4<Status, String, Integer, String>>, Void>() {
+    res.foreachRDD(new Function<JavaRDD<Tuple5<Status, String, Double, Double, String>>, Void>() {
       @Override
-      public Void call(JavaRDD<Tuple4<Status, String, Integer, String>> RDDtpl) throws Exception {
-        RDDtpl.foreach(new VoidFunction<Tuple4<Status, String, Integer, String>>() {
+      public Void call(JavaRDD<Tuple5<Status, String, Double, Double, String>> RDDtpl) throws Exception {
+        RDDtpl.foreach(new VoidFunction<Tuple5<Status, String, Double, Double, String>>() {
           @Override
-          public void call(Tuple4<Status, String, Integer, String> tpl) throws Exception {
+          public void call(Tuple5<Status, String, Double, Double, String> tpl) throws Exception {
             HttpClient client = new DefaultHttpClient();
             HttpPost post = new HttpPost("http://laurencewelch.science:3000/post");
             String content = String.format(
             "{\"tweet\": \"%s\", " +
             "\"text\": \"%s\", " +
-            "\"score\": \"%f\", " +
-            "\"label\": \"%s\" }",
-            DataObjectFactory.getRawJSON(tpl._1()).toString(),
+            "\"pos\": \"%f\", " +
+            "\"neg\": \"%f\", " +
+            "\"score\": \"%s\" }",
+            DataObjectFactory.getRawJSON(tpl._1()),
             tpl._2(),
             tpl._3(),
-            tpl._4());
+            tpl._4(),
+            tpl._5());
             try
             {
               post.setEntity(new StringEntity(content));
