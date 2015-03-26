@@ -89,7 +89,7 @@ public class TStream {
         for (String stopWord : stopWords){
           txt = txt.replaceAll("\\b" + stopWord + "\\b", "");
         }
-        return new Tuple2<>(statusStringTuple2._1(), txt);
+        return new Tuple2<Status, String>(statusStringTuple2._1(), txt);
       }
     });
 
@@ -120,7 +120,7 @@ public class TStream {
             }
           }
         }
-        return new Tuple4<>
+        return new Tuple4<Status, String, Double, Double>
         (statusStringTuple2._1(), statusStringTuple2._2(), (positive/length), (negative/length));
       }
     });
@@ -134,7 +134,7 @@ public class TStream {
           return new Tuple5<>
           (tpl._1(),tpl._2(),tpl._3(),tpl._4(), "neutral" );
         }
-        return new Tuple5<>
+        return new Tuple5<Status, String, Double, Double, String>
         (tpl._1(),tpl._2(),tpl._3(),tpl._4(), (tpl._3() > tpl._4()) ? "positive" : "negative" );
       }
     });
