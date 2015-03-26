@@ -166,11 +166,9 @@ public class TStream {
             HttpPost post = new HttpPost("http://laurencewelch.science:3000/post");
             String content = String.format(
             "{\"tweet\": \"%s\", " +
-            "\"text\": \"%s\", " +
             "\"pos\": \"%f\", " +
             "\"neg\": \"%f\", " +
             "\"score\": \"%s\" }",
-            tpl._1().toString(),
             tpl._2(),
             tpl._3(),
             tpl._4(),
