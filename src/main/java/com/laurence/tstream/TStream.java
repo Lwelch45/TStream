@@ -175,7 +175,7 @@ public class TStream {
             "\"pos\": \"%f\", " +
             "\"neg\": \"%f\", " +
             "\"score\": \"%s\" }",
-            tpl._2(),
+            tpl._1().getText(),
             tpl._3(),
             tpl._4(),
             tpl._5());
