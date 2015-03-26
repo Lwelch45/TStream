@@ -131,7 +131,7 @@ public class TStream {
       @Override
       public Tuple5<Status, String, Double, Double, String> call(Tuple4<Status, String, Double, Double> tpl) throws Exception {
         if ((tpl._3() == 0) && (tpl._4() == 0)){
-          return new Tuple5<>
+          return new Tuple5<Status, String, Double, Double, String>
           (tpl._1(),tpl._2(),tpl._3(),tpl._4(), "neutral" );
         }
         return new Tuple5<Status, String, Double, Double, String>
